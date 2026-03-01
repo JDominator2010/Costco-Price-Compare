@@ -7,14 +7,10 @@ import { scoreMatch } from "./matcher.js";
 import { compare } from "./comparator.js";
 
 // ── Config ──────────────────────────────────────────────────────────────────
-const STORAGE_KEY = "pricecompare_worker_url";
-
 function getWorkerUrl() {
-  return (localStorage.getItem(STORAGE_KEY) || "").trim();
-}
-
-function setWorkerUrl(url) {
-  localStorage.setItem(STORAGE_KEY, url.trim().replace(/\/+$/, ""));
+  // Provided by inline script in index.html (always available)
+  if (typeof window.__getWorkerUrl === "function") return window.__getWorkerUrl();
+  return (localStorage.getItem("pricecompare_worker_url") || "").trim();
 }
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
@@ -24,59 +20,6 @@ const comparisonEl = document.getElementById("comparison");
 const costcoCardEl = document.getElementById("costco-summary");
 const statusEl     = document.getElementById("status-msg");
 const placeholderEl = document.getElementById("placeholder");
-
-// ── Settings modal ──────────────────────────────────────────────────────────
-const settingsModal    = document.getElementById("settings-modal");
-const settingsForm     = document.getElementById("settings-form");
-const workerUrlInput   = document.getElementById("worker-url");
-const settingsStatus   = document.getElementById("settings-status");
-
-document.getElementById("open-settings").addEventListener("click", () => {
-  workerUrlInput.value = getWorkerUrl();
-  settingsStatus.classList.add("hidden");
-  settingsModal.classList.remove("hidden");
-});
-
-function closeSettings() { settingsModal.classList.add("hidden"); }
-document.getElementById("close-settings").addEventListener("click", closeSettings);
-document.getElementById("settings-backdrop").addEventListener("click", closeSettings);
-
-settingsForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  setWorkerUrl(workerUrlInput.value);
-  settingsStatus.textContent = "✅ Saved!";
-  settingsStatus.className = "text-sm text-center text-green-700 bg-green-50 rounded-lg py-2";
-  settingsStatus.classList.remove("hidden");
-  const banner = document.getElementById("setup-banner");
-  if (banner) banner.classList.add("hidden");
-  setTimeout(closeSettings, 800);
-});
-
-document.getElementById("test-worker").addEventListener("click", async () => {
-  const url = workerUrlInput.value.trim().replace(/\/+$/, "");
-  if (!url) {
-    settingsStatus.textContent = "⚠️ Enter a URL first.";
-    settingsStatus.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
-    settingsStatus.classList.remove("hidden");
-    return;
-  }
-  settingsStatus.textContent = "Testing…";
-  settingsStatus.className = "text-sm text-center text-blue-700 bg-blue-50 rounded-lg py-2";
-  settingsStatus.classList.remove("hidden");
-  try {
-    const resp = await fetch(`${url}/search?q=test`, { signal: AbortSignal.timeout(10000) });
-    if (resp.ok) {
-      settingsStatus.textContent = "✅ Worker is reachable!";
-      settingsStatus.className = "text-sm text-center text-green-700 bg-green-50 rounded-lg py-2";
-    } else {
-      settingsStatus.textContent = `⚠️ Worker returned HTTP ${resp.status}`;
-      settingsStatus.className = "text-sm text-center text-yellow-700 bg-yellow-50 rounded-lg py-2";
-    }
-  } catch (err) {
-    settingsStatus.textContent = `❌ Could not reach worker: ${err.message}`;
-    settingsStatus.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
-  }
-});
 
 let currentCostco = null;   // { name, price, totalQty, unit, pricePerUnit }
 let currentCandidates = []; // enriched walmart items
@@ -364,10 +307,4 @@ function statRow(label, valueHtml) {
   return `<div class="flex justify-between text-sm">
     <span class="text-gray-500">${label}</span>${valueHtml}
   </div>`;
-}
-
-// ── Init: show setup banner if worker URL not configured ────────────────────
-if (!getWorkerUrl()) {
-  const banner = document.getElementById("setup-banner");
-  if (banner) banner.classList.remove("hidden");
 }

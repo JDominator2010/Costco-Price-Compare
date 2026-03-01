@@ -165,6 +165,76 @@
     </div>
   </div>
 
+  <!-- Settings logic (inline, no module dependency — always works) -->
+  <script>
+  (function() {
+    var STORAGE_KEY = "pricecompare_worker_url";
+    var modal = document.getElementById("settings-modal");
+    var urlInput = document.getElementById("worker-url");
+    var statusEl = document.getElementById("settings-status");
+
+    function getUrl() { return (localStorage.getItem(STORAGE_KEY) || "").trim(); }
+    function close() { modal.classList.add("hidden"); }
+
+    // Expose for app.js module
+    window.__getWorkerUrl = getUrl;
+
+    document.getElementById("open-settings").addEventListener("click", function() {
+      urlInput.value = getUrl();
+      statusEl.classList.add("hidden");
+      modal.classList.remove("hidden");
+    });
+
+    document.getElementById("close-settings").addEventListener("click", close);
+    document.getElementById("settings-backdrop").addEventListener("click", close);
+
+    document.getElementById("settings-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      var url = urlInput.value.trim().replace(/\/+$/, "");
+      localStorage.setItem(STORAGE_KEY, url);
+      statusEl.textContent = "✅ Saved!";
+      statusEl.className = "text-sm text-center text-green-700 bg-green-50 rounded-lg py-2";
+      statusEl.classList.remove("hidden");
+      var banner = document.getElementById("setup-banner");
+      if (banner) banner.classList.add("hidden");
+      setTimeout(close, 800);
+    });
+
+    document.getElementById("test-worker").addEventListener("click", function() {
+      var url = urlInput.value.trim().replace(/\/+$/, "");
+      if (!url) {
+        statusEl.textContent = "⚠️ Enter a URL first.";
+        statusEl.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
+        statusEl.classList.remove("hidden");
+        return;
+      }
+      statusEl.textContent = "Testing…";
+      statusEl.className = "text-sm text-center text-blue-700 bg-blue-50 rounded-lg py-2";
+      statusEl.classList.remove("hidden");
+      fetch(url + "/search?q=test")
+        .then(function(resp) {
+          if (resp.ok) {
+            statusEl.textContent = "✅ Worker is reachable!";
+            statusEl.className = "text-sm text-center text-green-700 bg-green-50 rounded-lg py-2";
+          } else {
+            statusEl.textContent = "⚠️ Worker returned HTTP " + resp.status;
+            statusEl.className = "text-sm text-center text-yellow-700 bg-yellow-50 rounded-lg py-2";
+          }
+        })
+        .catch(function(err) {
+          statusEl.textContent = "❌ Could not reach worker: " + err.message;
+          statusEl.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
+        });
+    });
+
+    // Show setup banner if URL not configured
+    if (!getUrl()) {
+      var banner = document.getElementById("setup-banner");
+      if (banner) banner.classList.remove("hidden");
+    }
+  })();
+  </script>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
