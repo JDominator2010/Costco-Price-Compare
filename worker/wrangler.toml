@@ -1,0 +1,6 @@
+name = "walmart-search-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# After first deploy, Cloudflare assigns a *.workers.dev subdomain.
+# Update WORKER_URL in docs/js/app.js with the real URL.
