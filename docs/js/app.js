@@ -85,7 +85,23 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  if (!rawResults.length) {
+  // Handle error/diagnostic response from worker
+  if (rawResults.error) {
+    const d = rawResults.detail;
+    let msg = `⚠️ ${rawResults.error}`;
+    if (typeof d === "object" && d.botDetected) {
+      msg = "⚠️ Walmart bot detection triggered. Try again in a minute, or redeploy the worker.";
+    } else if (typeof d === "object" && d.hint) {
+      msg = `⚠️ ${d.hint}`;
+    } else if (typeof d === "string") {
+      msg = `⚠️ ${rawResults.error}: ${d}`;
+    }
+    showStatus(msg, true);
+    candidatesEl.innerHTML = "";
+    return;
+  }
+
+  if (!Array.isArray(rawResults) || !rawResults.length) {
     showStatus("No Walmart results found. Try a different search term.", true);
     candidatesEl.innerHTML = "";
     return;
