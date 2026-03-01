@@ -8,7 +8,6 @@ import { compare } from "./comparator.js";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 function getWorkerUrl() {
-  // Provided by inline script in index.html (always available)
   if (typeof window.__getWorkerUrl === "function") return window.__getWorkerUrl();
   return (localStorage.getItem("pricecompare_worker_url") || "").trim();
 }
@@ -20,13 +19,29 @@ const comparisonEl = document.getElementById("comparison");
 const costcoCardEl = document.getElementById("costco-summary");
 const statusEl     = document.getElementById("status-msg");
 const placeholderEl = document.getElementById("placeholder");
+const manualForm   = document.getElementById("walmart-manual-form");
+const manualStatus = document.getElementById("manual-status");
+const tabAuto      = document.getElementById("tab-auto");
+const tabManual    = document.getElementById("tab-manual");
+const panelAuto    = document.getElementById("panel-auto");
+const panelManual  = document.getElementById("panel-manual");
 
-let currentCostco = null;   // { name, price, totalQty, unit, pricePerUnit }
-let currentCandidates = []; // enriched walmart items
+let currentCostco = null;
+let currentCandidates = [];
 let rawResults = [];
 
+// ── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isAuto = tab === "auto";
+  tabAuto.className  = `flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-colors ${isAuto ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100"}`;
+  tabManual.className = `flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-colors ${!isAuto ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100"}`;
+  panelAuto.classList.toggle("hidden", !isAuto);
+  panelManual.classList.toggle("hidden", isAuto);
+}
+tabAuto.addEventListener("click", () => switchTab("auto"));
+tabManual.addEventListener("click", () => switchTab("manual"));
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
-const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const fmt = (n, d = 2) => Number(n).toFixed(d);
 
 function showStatus(msg, isError = false) {
@@ -38,7 +53,7 @@ function showStatus(msg, isError = false) {
 }
 function hideStatus() { statusEl.classList.add("hidden"); }
 
-// ── Search flow ─────────────────────────────────────────────────────────────
+// ── Auto search flow ────────────────────────────────────────────────────────
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   comparisonEl.innerHTML = "";
@@ -53,7 +68,6 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Normalize Costco item
   const norm = normalizeToBase(quantity, unit);
   const ppu = price / norm.qty;
   currentCostco = {
@@ -68,7 +82,8 @@ form.addEventListener("submit", async (e) => {
   // Fetch Walmart results
   const workerUrl = getWorkerUrl();
   if (!workerUrl) {
-    showStatus("⚠️ Worker URL not configured. Click the ⚙️ gear icon to set it up.", true);
+    showStatus("⚠️ No Worker URL set. Use the ✏️ Manual Entry tab, or configure a Worker in ⚙️ Settings.", true);
+    switchTab("manual");
     candidatesEl.innerHTML = "";
     return;
   }
@@ -80,36 +95,34 @@ form.addEventListener("submit", async (e) => {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     rawResults = await resp.json();
   } catch (err) {
-    showStatus(`⚠️ Could not reach Walmart search. Check your Worker URL in ⚙️ Settings. (${err.message})`, true);
+    showStatus(`⚠️ Could not reach Worker. Use ✏️ Manual Entry tab instead. (${err.message})`, true);
+    switchTab("manual");
     candidatesEl.innerHTML = "";
     return;
   }
 
-  // Handle error/diagnostic response from worker
   if (rawResults.error) {
     const d = rawResults.detail;
-    let msg = `⚠️ ${rawResults.error}`;
+    let msg = "⚠️ Auto-search failed.";
     if (typeof d === "object" && d.botDetected) {
-      msg = "⚠️ Walmart bot detection triggered. Try again in a minute, or redeploy the worker.";
+      msg = "⚠️ Walmart blocked the auto-search. Use the ✏️ Manual Entry tab instead.";
     } else if (typeof d === "object" && d.hint) {
-      msg = `⚠️ ${d.hint}`;
-    } else if (typeof d === "string") {
-      msg = `⚠️ ${rawResults.error}: ${d}`;
+      msg = `⚠️ ${d.hint} Use ✏️ Manual Entry instead.`;
     }
     showStatus(msg, true);
+    switchTab("manual");
     candidatesEl.innerHTML = "";
     return;
   }
 
   if (!Array.isArray(rawResults) || !rawResults.length) {
-    showStatus("No Walmart results found. Try a different search term.", true);
+    showStatus("No results found. Try ✏️ Manual Entry tab.", true);
     candidatesEl.innerHTML = "";
     return;
   }
 
   hideStatus();
 
-  // Enrich candidates
   currentCandidates = rawResults.map((r, i) => {
     const parsed = parseAndFilter(r.title, unit);
     const sc = scoreMatch(name, r.title, norm.qty, parsed.qty);
@@ -120,6 +133,48 @@ form.addEventListener("submit", async (e) => {
 
   currentCandidates.sort((a, b) => b.score - a.score);
   renderCandidates();
+});
+
+// ── Manual Walmart entry ────────────────────────────────────────────────────
+manualForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  if (!currentCostco) {
+    manualStatus.textContent = "⚠️ Enter Costco item details on the left first.";
+    manualStatus.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
+    manualStatus.classList.remove("hidden");
+    return;
+  }
+
+  const wmName = document.getElementById("wm-name").value.trim();
+  const wmPrice = parseFloat(document.getElementById("wm-price").value);
+  const wmQty = parseFloat(document.getElementById("wm-quantity").value);
+  const wmUnit = document.getElementById("wm-unit").value;
+
+  if (!wmName || isNaN(wmPrice) || isNaN(wmQty) || wmPrice <= 0 || wmQty <= 0) {
+    manualStatus.textContent = "⚠️ Please fill in all Walmart fields.";
+    manualStatus.className = "text-sm text-center text-red-700 bg-red-50 rounded-lg py-2";
+    manualStatus.classList.remove("hidden");
+    return;
+  }
+
+  const norm = normalizeToBase(wmQty, wmUnit);
+  const wPpu = wmPrice / norm.qty;
+  const walmart = {
+    name: wmName,
+    price: wmPrice,
+    totalQty: +norm.qty.toFixed(4),
+    unit: norm.unit,
+    pricePerUnit: +wPpu.toFixed(6),
+  };
+
+  const result = compare(currentCostco, walmart);
+  result.walmartUrl = "";
+  result.matchScore = null;
+
+  manualStatus.classList.add("hidden");
+  renderComparison(result);
+  comparisonEl.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 // ── Render functions ────────────────────────────────────────────────────────
@@ -273,7 +328,7 @@ function renderComparison(r) {
           r.equivSavings > 0 ? `<span class="font-bold text-blue-700">You save $${fmt(r.equivSavings)} at Costco</span>` :
           r.equivSavings < 0 ? `<span class="font-bold text-green-700">You save $${fmt(Math.abs(r.equivSavings))} at Walmart</span>` :
           `<span class="font-semibold text-yellow-600">Same price</span>`)}
-        ${statRow("Match Score", `<span class="text-gray-600">${Math.round(r.matchScore)}%</span>`)}
+        ${r.matchScore != null ? statRow("Match Score", `<span class="text-gray-600">${Math.round(r.matchScore)}%</span>`) : ""}
       </div>
     </div>`;
 

@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Grocery Price Compare</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2563eb" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="PriceCompare" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -20,6 +21,7 @@
     button[type="submit"]:active { transform: scale(0.98); }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { opacity: 0.5; }
+    body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans text-gray-800">
@@ -100,8 +102,8 @@
           <p class="font-semibold mb-1">💡 How it works</p>
           <ol class="list-decimal list-inside space-y-1 text-blue-600">
             <li>Enter your Costco item details</li>
-            <li>We search Walmart and show matching items</li>
-            <li>Pick one to see a detailed price-per-unit comparison</li>
+            <li>Use <strong>Auto Search</strong> or <strong>Manual Entry</strong> for Walmart</li>
+            <li>See a detailed price-per-unit comparison</li>
           </ol>
         </div>
 
@@ -117,13 +119,83 @@
 
       <!-- ─── RIGHT COLUMN: Walmart Candidates ─────────────────────────── -->
       <div>
-        <div id="status-msg" class="hidden"></div>
-        <div id="candidates"></div>
-        <div id="placeholder" class="flex items-center justify-center h-full min-h-[300px]">
-          <div class="text-center text-gray-400">
-            <p class="text-4xl mb-3">🏪</p>
-            <p class="text-base font-medium">Walmart results will appear here</p>
-            <p class="text-sm mt-1">Fill in your Costco item and click "Find"</p>
+        <!-- Tab bar -->
+        <div class="flex mb-3 bg-white rounded-xl shadow-sm p-1 gap-1">
+          <button id="tab-auto" type="button"
+            class="flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white">
+            🔍 Auto Search
+          </button>
+          <button id="tab-manual" type="button"
+            class="flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-colors text-gray-500 hover:bg-gray-100">
+            ✏️ Manual Entry
+          </button>
+        </div>
+
+        <!-- Auto search panel -->
+        <div id="panel-auto">
+          <div id="status-msg" class="hidden"></div>
+          <div id="candidates"></div>
+          <div id="placeholder" class="flex items-center justify-center h-full min-h-[200px]">
+            <div class="text-center text-gray-400">
+              <p class="text-4xl mb-3">🏪</p>
+              <p class="text-base font-medium">Walmart results will appear here</p>
+              <p class="text-sm mt-1">Fill in your Costco item and click "Find"</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual entry panel -->
+        <div id="panel-manual" class="hidden">
+          <div class="bg-white rounded-2xl shadow-md p-6">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold uppercase tracking-widest text-white bg-[#0071CE] px-2 py-0.5 rounded">WALMART</span>
+              <h2 class="text-lg font-bold">Manual Entry</h2>
+            </div>
+            <p class="text-sm text-gray-500 mb-2">
+              Search Walmart yourself and enter the details.
+              <a href="https://www.walmart.com" target="_blank" rel="noopener"
+                class="text-blue-600 underline font-medium">Open Walmart.com →</a>
+            </p>
+            <form id="walmart-manual-form" class="space-y-4 mt-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="wm-name">Product name</label>
+                <input id="wm-name" type="text" required autocomplete="off"
+                  placeholder="e.g. Great Value Purified Water, 16.9 oz, 40 ct"
+                  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1" for="wm-price">Price ($)</label>
+                  <input id="wm-price" type="number" step="0.01" min="0.01" required
+                    placeholder="e.g. 5.98"
+                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1" for="wm-quantity">Quantity</label>
+                  <input id="wm-quantity" type="number" step="0.01" min="0.01" required
+                    placeholder="e.g. 676"
+                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1" for="wm-unit">Unit</label>
+                <select id="wm-unit" required
+                  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="oz">oz</option>
+                  <option value="lb">lb</option>
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                  <option value="ml">ml</option>
+                  <option value="l">l</option>
+                  <option value="count">count</option>
+                </select>
+              </div>
+              <button type="submit"
+                class="w-full bg-[#0071CE] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl py-4 text-lg transition-colors">
+                📊 Compare Prices
+              </button>
+              <div id="manual-status" class="text-sm text-center hidden"></div>
+            </form>
           </div>
         </div>
       </div>
