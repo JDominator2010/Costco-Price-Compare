@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Comparison Results{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  {# ── LEFT COLUMN: Detailed Comparison ──────────────────────────────────── #}
+  <div>
+    {% if result %}
+
+    {# Banner #}
+    {% set banner_classes = {
+      "green":  "bg-green-50 border-green-300 text-green-800",
+      "blue":   "bg-blue-50 border-blue-300 text-blue-800",
+      "yellow": "bg-yellow-50 border-yellow-300 text-yellow-800"
+    } %}
+    {% set banner_icons = {"green": "🟢", "blue": "🔵", "yellow": "🟡"} %}
+
+    <div class="rounded-2xl border-2 {{ banner_classes[result.color] }} px-5 py-4 mb-4 text-center">
+      <p class="text-2xl font-extrabold mb-1">
+        {{ banner_icons[result.color] }}
+        {% if result.cheaper_store == "Equal" %}
+          Nearly Equal Price
+        {% else %}
+          {{ result.cheaper_store }} Wins
+        {% endif %}
+      </p>
+      {% if result.cheaper_store != "Equal" %}
+      <p class="text-base font-medium">
+        {{ "%.1f"|format(result.percent_difference) }}% cheaper per {{ result.costco.unit }}
+      </p>
+      {% else %}
+      <p class="text-sm">Within {{ "%.1f"|format(result.percent_difference) }}% of each other</p>
+      {% endif %}
+    </div>
+
+    {# Side-by-side store cards #}
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      {# Costco card #}
+      <div class="bg-white rounded-2xl shadow-md p-4 {{ 'ring-2 ring-green-400' if result.cheaper_store == 'Costco' else '' }}">
+        <div class="flex items-center gap-1.5 mb-2">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white bg-[#005DAA] px-1.5 py-0.5 rounded">COSTCO</span>
+          {% if result.cheaper_store == "Costco" %}
+          <span class="text-[10px] text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Winner</span>
+          {% endif %}
+        </div>
+        <p class="font-semibold text-gray-800 text-sm leading-snug mb-2">{{ result.costco.name }}</p>
+        <div class="space-y-1.5 text-sm">
+          <div class="bg-gray-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-gray-400 uppercase">Total Price</p>
+            <p class="font-bold text-gray-800">${{ "%.2f"|format(result.costco.price) }}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-gray-400 uppercase">Size</p>
+            <p class="font-semibold text-gray-700">{{ result.costco.total_quantity }} {{ result.costco.unit }}</p>
+          </div>
+          <div class="bg-blue-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-blue-400 uppercase">Price Per Unit</p>
+            <p class="font-bold text-blue-800 text-base">${{ "%.4f"|format(result.costco.price_per_unit) }}</p>
+            <p class="text-[10px] text-blue-500">per {{ result.costco.unit }}</p>
+          </div>
+        </div>
+      </div>
+
+      {# Walmart card #}
+      <div class="bg-white rounded-2xl shadow-md p-4 {{ 'ring-2 ring-green-400' if result.cheaper_store == 'Walmart' else '' }}">
+        <div class="flex items-center gap-1.5 mb-2">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white bg-[#0071CE] px-1.5 py-0.5 rounded">WALMART</span>
+          {% if result.cheaper_store == "Walmart" %}
+          <span class="text-[10px] text-green-700 font-semibold bg-green-100 px-1.5 py-0.5 rounded-full">✓ Winner</span>
+          {% endif %}
+        </div>
+        <p class="font-semibold text-gray-800 text-sm leading-snug mb-2">{{ result.walmart_title[:60] }}{% if result.walmart_title|length > 60 %}…{% endif %}</p>
+        <div class="space-y-1.5 text-sm">
+          <div class="bg-gray-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-gray-400 uppercase">Total Price</p>
+            <p class="font-bold text-gray-800">${{ "%.2f"|format(result.walmart.price) }}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-gray-400 uppercase">Size</p>
+            <p class="font-semibold text-gray-700">{{ result.walmart.total_quantity }} {{ result.walmart.unit }}</p>
+          </div>
+          <div class="bg-blue-50 rounded-lg px-2 py-1.5">
+            <p class="text-[10px] text-blue-400 uppercase">Price Per Unit</p>
+            <p class="font-bold text-blue-800 text-base">${{ "%.4f"|format(result.walmart.price_per_unit) }}</p>
+            <p class="text-[10px] text-blue-500">per {{ result.walmart.unit }}</p>
+          </div>
+        </div>
+        {% if result.walmart_url %}
+        <a href="{{ result.walmart_url }}" target="_blank" rel="noopener"
+           class="mt-2 block text-center text-blue-600 border border-blue-200 rounded-lg py-1.5 text-xs font-medium hover:bg-blue-50">
+          View on Walmart →
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Detailed price breakdown #}
+    <div class="bg-white rounded-2xl shadow-md p-5 mb-4">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Price Breakdown</p>
+
+      {# PPU bar comparison #}
+      {% set max_ppu = [result.costco.price_per_unit, result.walmart.price_per_unit]|max %}
+      {% set c_pct = (result.costco.price_per_unit / max_ppu * 100)|round(1) if max_ppu else 100 %}
+      {% set w_pct = (result.walmart.price_per_unit / max_ppu * 100)|round(1) if max_ppu else 100 %}
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Costco PPU</span>
+            <span class="font-semibold">${{ "%.4f"|format(result.costco.price_per_unit) }} / {{ result.costco.unit }}</span>
+          </div>
+          <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-[#005DAA] rounded-full transition-all" style="width:{{ c_pct }}%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Walmart PPU</span>
+            <span class="font-semibold">${{ "%.4f"|format(result.walmart.price_per_unit) }} / {{ result.walmart.unit }}</span>
+          </div>
+          <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-[#0071CE] rounded-full transition-all" style="width:{{ w_pct }}%"></div>
+          </div>
+        </div>
+      </div>
+
+      {# Stats table #}
+      <div class="border-t border-gray-100 pt-3 space-y-2">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">PPU Difference</span>
+          {% if result.ppu_difference > 0 %}
+          <span class="font-semibold text-green-700">${{ "%.4f"|format(result.ppu_difference|abs) }} cheaper at Walmart</span>
+          {% elif result.ppu_difference < 0 %}
+          <span class="font-semibold text-blue-700">${{ "%.4f"|format(result.ppu_difference|abs) }} cheaper at Costco</span>
+          {% else %}
+          <span class="font-semibold text-yellow-600">Equal</span>
+          {% endif %}
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Percent Difference</span>
+          <span class="font-semibold text-gray-800">{{ "%.1f"|format(result.percent_difference) }}%</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">If Walmart sold same size ({{ result.costco.total_quantity }} {{ result.costco.unit }})</span>
+          <span class="font-semibold text-gray-800">${{ "%.2f"|format(result.equivalent_walmart_price) }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Savings at equivalent size</span>
+          {% if result.equivalent_savings > 0 %}
+          <span class="font-bold text-blue-700">You save ${{ "%.2f"|format(result.equivalent_savings) }} at Costco</span>
+          {% elif result.equivalent_savings < 0 %}
+          <span class="font-bold text-green-700">You save ${{ "%.2f"|format(result.equivalent_savings|abs) }} at Walmart</span>
+          {% else %}
+          <span class="font-semibold text-yellow-600">Same price</span>
+          {% endif %}
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Match Score</span>
+          <span class="text-gray-600">{{ result.walmart_match_score|round(0)|int }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <a href="/" class="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl py-3 text-sm transition-colors">
+      ← Start Over
+    </a>
+
+    {% endif %}
+  </div>
+
+  {# ── RIGHT COLUMN: Walmart Candidates (still visible) ─────────────────── #}
+  <div>
+    {% if candidates %}
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-xs font-bold uppercase tracking-widest text-white bg-[#0071CE] px-2 py-0.5 rounded">WALMART</span>
+      <h2 class="text-lg font-bold">All Matches</h2>
+      <span class="ml-auto text-xs text-gray-400">{{ candidates|length }} results</span>
+    </div>
+
+    <div class="space-y-2">
+      {% for c in candidates %}
+      <form action="/compare" method="post" class="block">
+        <input type="hidden" name="name" value="{{ form_name }}" />
+        <input type="hidden" name="price" value="{{ form_price }}" />
+        <input type="hidden" name="quantity" value="{{ form_quantity }}" />
+        <input type="hidden" name="unit" value="{{ form_unit }}" />
+        <input type="hidden" name="selected" value="{{ c.index }}" />
+        <input type="hidden" name="raw_json" value="{{ raw_json|e }}" />
+
+        {% set is_selected = (selected is defined and selected == c.index) %}
+        <button type="submit"
+          class="w-full text-left rounded-xl border transition-all p-3 group
+            {{ 'bg-blue-50 border-blue-400 shadow-md' if is_selected else 'bg-white border-gray-200 hover:border-blue-300 shadow-sm hover:shadow-md' }}">
+          <div class="flex items-start gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm text-gray-800 leading-snug mb-1 {{ 'text-blue-800' if is_selected else 'group-hover:text-blue-700' }}">
+                {% if is_selected %}✓ {% endif %}{{ c.title }}
+              </p>
+              <div class="flex flex-wrap gap-1.5 text-xs">
+                {% if c.price is not none %}
+                <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full">${{ "%.2f"|format(c.price) }}</span>
+                {% else %}
+                <span class="bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full">No price</span>
+                {% endif %}
+                {% if c.quantity %}
+                <span class="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{{ c.quantity|round(1) }} {{ c.unit }}</span>
+                {% endif %}
+                {% if c.price_per_unit is not none and result %}
+                  <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">${{ "%.4f"|format(c.price_per_unit) }}/{{ c.unit }}</span>
+                  {% set diff_pct = ((c.price_per_unit - result.costco.price_per_unit) / result.costco.price_per_unit * 100) %}
+                  {% if diff_pct < -2 %}
+                  <span class="bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">{{ "%.0f"|format(diff_pct) }}%</span>
+                  {% elif diff_pct > 2 %}
+                  <span class="bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full font-semibold">+{{ "%.0f"|format(diff_pct) }}%</span>
+                  {% else %}
+                  <span class="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full">≈ equal</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-0.5 shrink-0 text-xs">
+              <span class="text-gray-400">{{ c.match_score|round(0)|int }}%</span>
+              {% if not is_selected %}
+              <span class="text-blue-600 font-semibold group-hover:underline">Compare →</span>
+              {% else %}
+              <span class="text-blue-700 font-semibold">Selected</span>
+              {% endif %}
+            </div>
+          </div>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
