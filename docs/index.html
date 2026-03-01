@@ -24,6 +24,12 @@
         <span class="text-2xl">🛒</span>
         <span class="font-bold text-lg text-gray-900 leading-tight">Price<span class="text-blue-600">Compare</span></span>
       </a>
+      <button id="open-settings" title="Settings" class="ml-auto text-gray-400 hover:text-gray-700 transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -93,6 +99,12 @@
           </ol>
         </div>
 
+        <!-- Setup banner (shown when worker URL not configured) -->
+        <div id="setup-banner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 mt-4">
+          <p class="font-semibold mb-1">⚠️ First-time setup needed</p>
+          <p>Click the <strong>⚙️ gear icon</strong> in the top-right to enter your Cloudflare Worker URL. See the <a href="https://github.com/JDominator2010/Costco-Price-Compare#readme" target="_blank" class="underline font-medium">README</a> for deployment instructions.</p>
+        </div>
+
         <!-- Comparison result (rendered by JS) -->
         <div id="comparison" class="mt-4"></div>
       </div>
@@ -116,6 +128,42 @@
   <footer class="text-center text-xs text-gray-400 py-6">
     Local tool · No data shared · Walmart prices scraped via Cloudflare Worker
   </footer>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40" id="settings-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+        <button id="close-settings" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        <h2 class="text-lg font-bold mb-1">⚙️ Settings</h2>
+        <p class="text-sm text-gray-500 mb-4">Saved locally in your browser.</p>
+        <form id="settings-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="worker-url">Cloudflare Worker URL</label>
+            <input id="worker-url" name="worker-url" type="url" required
+              placeholder="https://walmart-search-proxy.your-sub.workers.dev"
+              class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <p class="text-xs text-gray-400 mt-1">Deploy the worker from the <code class="bg-gray-100 px-1 rounded">worker/</code> folder, then paste the URL here.</p>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit"
+              class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 text-sm transition-colors">
+              💾 Save
+            </button>
+            <button type="button" id="test-worker"
+              class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl py-3 text-sm transition-colors">
+              🔗 Test Connection
+            </button>
+          </div>
+          <div id="settings-status" class="text-sm text-center hidden"></div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/app.js"></script>
 </body>
